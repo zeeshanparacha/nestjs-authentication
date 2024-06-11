@@ -1,53 +1,62 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { User } from './schemas/user.schema';
 import { JwtService } from '@nestjs/jwt';
 import { Model } from 'mongoose';
 import { SignUpDto } from './dto/sign-up.dto';
-import * as bcrypt from 'bcryptjs';
 import { SignInDto } from './dto/sign-in.dto';
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class AuthenticationService {
-    constructor(
-        @InjectModel(User.name)
-        private userModel: Model<User>,
-        private jwtService: JwtService
-    ) { }
+  constructor(
+    @InjectModel(User.name)
+    private userModel: Model<User>,
+    private jwtService: JwtService,
+  ) {}
 
+  async signUp(SignUpDto: SignUpDto): Promise<{}> {
+    const { username, email, password } = SignUpDto;
 
-    async signUp(SignUpDto: SignUpDto): Promise<{}> {
-        const { name, email, password } = SignUpDto;
-        const hashedPassword = await bcrypt.hash(password, 10);
+    const existingUser = await this.userModel.findOne({ email });
 
-        const user = await this.userModel.create({
-            name,
-            email,
-            password: hashedPassword,
-        });
-
-        const token = this.jwtService.sign({ id: user._id });
-
-        return { message: "You have successfully Signup" };
+    if (existingUser) {
+      throw new ConflictException('Email already exists');
     }
 
-    async signIn(SignInDto: SignInDto): Promise<{}> {
-        const { email, password } = SignInDto;
+    const user = new this.userModel({
+      username,
+      email,
+      password,
+    });
 
-        const user = await this.userModel.findOne({ email });
+    await user.save();
 
-        if (!user) {
-            throw new UnauthorizedException('Invalid email or password');
-        }
+    const token = this.jwtService.sign({ id: user._id });
 
-        const isPasswordMatched = await bcrypt.compare(password, user.password);
+    return { message: 'You have successfully Signup', token };
+  }
 
-        if (!isPasswordMatched) {
-            throw new UnauthorizedException('Invalid email or password');
-        }
+  async signIn(SignInDto: SignInDto): Promise<{}> {
+    const { email, password } = SignInDto;
+    const user = await this.userModel.findOne({ email });
 
-        const token = this.jwtService.sign({ id: user._id });
-
-        return { name: user.name, email, token };
+    if (!user) {
+      throw new UnauthorizedException('The details entered do not match our records');
     }
+
+    const isPasswordMatched = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordMatched) {
+      throw new UnauthorizedException('The details entered do not match our records');
+    }
+
+    const token = this.jwtService.sign({ id: user._id });
+
+    return { username: user.username, email, token };
+  }
 }
