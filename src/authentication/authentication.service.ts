@@ -19,13 +19,17 @@ export class AuthenticationService {
     private jwtService: JwtService,
   ) {}
 
-  async signUp(SignUpDto: SignUpDto): Promise<{}> {
+  async signUp(
+    SignUpDto: SignUpDto,
+  ): Promise<{ message: string; token: string }> {
     const { username, email, password } = SignUpDto;
 
     const existingUser = await this.userModel.findOne({ email });
 
     if (existingUser) {
-      throw new ConflictException('Email already exists');
+      throw new ConflictException(
+        'Email already exists, please try with different email address.',
+      );
     }
 
     const user = new this.userModel({
@@ -41,22 +45,39 @@ export class AuthenticationService {
     return { message: 'You have successfully Signup', token };
   }
 
-  async signIn(SignInDto: SignInDto): Promise<{}> {
+  async signIn(
+    SignInDto: SignInDto,
+  ): Promise<{ username: string; email: string; token: string }> {
     const { email, password } = SignInDto;
     const user = await this.userModel.findOne({ email });
 
     if (!user) {
-      throw new UnauthorizedException('The details entered do not match our records');
+      throw new UnauthorizedException(
+        'The details entered do not match our records',
+      );
     }
 
     const isPasswordMatched = await bcrypt.compare(password, user.password);
 
     if (!isPasswordMatched) {
-      throw new UnauthorizedException('The details entered do not match our records');
+      throw new UnauthorizedException(
+        'The details entered do not match our records',
+      );
     }
 
     const token = this.jwtService.sign({ id: user._id });
 
     return { username: user.username, email, token };
+  }
+
+  async validateToken(
+    token: string,
+  ): Promise<{ valid: boolean; message?: string }> {
+    try {
+      this.jwtService.verify(token);
+      return { valid: true };
+    } catch (error) {
+      return { valid: false, message: 'Token is invalid or expired' };
+    }
   }
 }

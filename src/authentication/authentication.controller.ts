@@ -8,12 +8,17 @@ export class AuthenticationController {
   constructor(private authenticateService: AuthenticationService) {}
 
   @Post('/sign-up')
-  signUp(@Body() SignUpDto: SignUpDto): Promise<{}> {
+  signUp(@Body() SignUpDto: SignUpDto): Promise<{message: string; token: string}> {
     return this.authenticateService.signUp(SignUpDto);
   }
 
   @Post('/sign-in')
-  signIn(@Body() SignInDto: SignInDto): Promise<{}> {
+  signIn(@Body() SignInDto: SignInDto): Promise<{username: string; email: string; token: string}> {
     return this.authenticateService.signIn(SignInDto);
+  }
+
+  @Post('/validate-token')
+  validateToken(@Body("token") token: string): Promise<{valid: boolean; message?: string}> {
+    return this.authenticateService.validateToken(token);
   }
 }
